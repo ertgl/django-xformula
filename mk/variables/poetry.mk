@@ -1,0 +1,2 @@
+
+POETRY ?= $(shell which poetry)

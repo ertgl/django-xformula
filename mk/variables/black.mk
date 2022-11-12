@@ -1,0 +1,2 @@
+
+BLACK ?= $(VENV)/bin/black

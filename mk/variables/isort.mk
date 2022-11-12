@@ -1,0 +1,2 @@
+
+ISORT ?= $(VENV)/bin/isort

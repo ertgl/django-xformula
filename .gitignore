@@ -1,0 +1,28 @@
+# User-specific
+.local/**/*
+
+# Temporary files
+/tmp/
+
+# Editor artifacts
+.idea/
+.vscode/
+.history/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+
+# Mypy artifacts
+.mypy_cache/
+
+# Virtual environment
+.venv/
+
+# Build artifacts
+*.egg-info/
+/build/
+/dist/
+
+# Exceptions
+!.local/**/.gitkeep

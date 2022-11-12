@@ -1,0 +1,2 @@
+
+COMMITIZEN ?= $(VENV)/bin/cz
