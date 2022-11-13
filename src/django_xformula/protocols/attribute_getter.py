@@ -10,6 +10,6 @@ class AttributeGetter(Protocol):
     def __call__(
         self,
         owner: Any,
-        atname: str,
+        attname: str,
     ) -> Any:
         ...
