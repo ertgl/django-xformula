@@ -227,6 +227,10 @@ class BidirectionalOperator:
         cls,
         maybe_combinable,
     ):
+        if isinstance(maybe_combinable, (list, set, tuple)):
+            container_type = type(maybe_combinable)
+            return container_type(map(cls.ensure_if_combinable, maybe_combinable))
+
         if cls.is_combinable(maybe_combinable):
             combinable = cast(Combinable, maybe_combinable)
             return combinable

@@ -9,7 +9,7 @@ from django.db.models.lookups import (
     Exact,
     GreaterThan,
     GreaterThanOrEqual,
-    IsNull,
+    In, IsNull,
     LessThan,
     LessThanOrEqual,
 )
@@ -543,5 +543,33 @@ class DjangoQueryEvaluatorTestCase(TestCase):
         for case in cases:
             self.assertEqual(
                 (case[0], self.evaluate(case[0], context=context)),
+                (case[0], case[1]),
+            )
+
+    def test__evaluate__operation__bidirectional__in(self) -> None:
+        cases = (
+            ("field in 2", Q(In(F("field"), Value(2)))),
+            ("field in [1, 2]", Q(In(F("field"), [Value(1), Value(2)]))),
+            ("field in (1, 2)", Q(In(F("field"), (Value(1), Value(2))))),
+            ("field in {1, 2}", Q(In(F("field"), {Value(1), Value(2)}))),
+        )
+
+        for case in cases:
+            self.assertEqual(
+                (case[0], self.evaluate(case[0])),
+                (case[0], case[1]),
+            )
+
+    def test__evaluate__operation__bidirectional__nin(self) -> None:
+        cases = (
+            ("field !in 2", ~Q(In(F("field"), Value(2)))),
+            ("field not in [1, 2]", ~Q(In(F("field"), [Value(1), Value(2)]))),
+            ("field !in (1, 2)", ~Q(In(F("field"), (Value(1), Value(2))))),
+            ("field not in {1, 2}", ~Q(In(F("field"), {Value(1), Value(2)}))),
+        )
+
+        for case in cases:
+            self.assertEqual(
+                (case[0], self.evaluate(case[0])),
                 (case[0], case[1]),
             )
