@@ -9,7 +9,8 @@ from django.db.models.lookups import (
     Exact,
     GreaterThan,
     GreaterThanOrEqual,
-    In, IsNull,
+    In,
+    IsNull,
     LessThan,
     LessThanOrEqual,
 )
