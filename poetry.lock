@@ -451,7 +451,7 @@ testing = ["coverage", "nose"]
 
 [[package]]
 name = "platformdirs"
-version = "2.5.3"
+version = "2.5.4"
 description = "A small Python package for determining appropriate platform-specific dirs, e.g. a \"user data dir\"."
 category = "dev"
 optional = false
@@ -784,7 +784,7 @@ python-versions = "*"
 
 [[package]]
 name = "xformula"
-version = "0.1.0"
+version = "0.1.1"
 description = "Highly customizable language front-end, aimed to be a base for custom DSL evaluators."
 category = "main"
 optional = false
@@ -808,7 +808,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.11"
-content-hash = "1fd5c79c43a06a9d9f336f191553bcaf25670e777c279a748f3d884741b51dc4"
+content-hash = "f94c8f4701e0ef2e84ab8fa737f7e85298d64d8fd5b39a19766afc9ba78d2040"
 
 [metadata.files]
 argcomplete = [
@@ -1145,8 +1145,8 @@ pkginfo = [
     {file = "pkginfo-1.8.3.tar.gz", hash = "sha256:a84da4318dd86f870a9447a8c98340aa06216bfc6f2b7bdc4b8766984ae1867c"},
 ]
 platformdirs = [
-    {file = "platformdirs-2.5.3-py3-none-any.whl", hash = "sha256:0cb405749187a194f444c25c82ef7225232f11564721eabffc6ec70df83b11cb"},
-    {file = "platformdirs-2.5.3.tar.gz", hash = "sha256:6e52c21afff35cb659c6e52d8b4d61b9bd544557180440538f255d9382c8cbe0"},
+    {file = "platformdirs-2.5.4-py3-none-any.whl", hash = "sha256:af0276409f9a02373d540bf8480021a048711d572745aef4b7842dad245eba10"},
+    {file = "platformdirs-2.5.4.tar.gz", hash = "sha256:1006647646d80f16130f052404c6b901e80ee4ed6bef6792e1f238a8969106f7"},
 ]
 prompt-toolkit = [
     {file = "prompt_toolkit-3.0.32-py3-none-any.whl", hash = "sha256:24becda58d49ceac4dc26232eb179ef2b21f133fecda7eed6018d341766ed76e"},
@@ -1296,8 +1296,8 @@ webencodings = [
     {file = "webencodings-0.5.1.tar.gz", hash = "sha256:b36a1c245f2d304965eb4e0a82848379241dc04b865afcc4aab16748587e1923"},
 ]
 xformula = [
-    {file = "xformula-0.1.0-py3-none-any.whl", hash = "sha256:668333b81df77ef4f547f77a479ee9d6a0688281609efcb82afbc410274642e6"},
-    {file = "xformula-0.1.0.tar.gz", hash = "sha256:7781f78d29da56b5d0b236203052aa5c9bb8b6da7f3c79f91b4749318c0ac7f0"},
+    {file = "xformula-0.1.1-py3-none-any.whl", hash = "sha256:d8a9df5ae24ba9027eed3417f639b939ef055048e75b6ba33bbe7debafcda682"},
+    {file = "xformula-0.1.1.tar.gz", hash = "sha256:4086f17a1bfef0e8543ad33a70c5f1b1f1926d4bcee48df08db97900d76883d9"},
 ]
 zipp = [
     {file = "zipp-3.10.0-py3-none-any.whl", hash = "sha256:4fcb6f278987a6605757302a6e40e896257570d11c51628968ccb2a47e80c6c1"},
