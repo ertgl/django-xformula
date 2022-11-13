@@ -30,3 +30,6 @@ class Pure(Lookup):
     ) -> tuple[str, Any]:
         lhs_sql, params = self.process_lhs(compiler, connection)
         return "%s" % lhs_sql, params
+
+    def __repr__(self) -> str:
+        return repr(self.lhs)
