@@ -1,9 +1,9 @@
 import dataclasses
 from functools import partial
 from operator import matmul
-from typing import Any, Sequence, TypeVar, cast
+from typing import Any, TypeVar, cast
 
-from django.db.models import F, Q, Value
+from django.db.models import F
 from xformula.syntax import Parser, ast
 
 from django_xformula.errors import ForbiddenAttribute, ForbiddenCall
@@ -180,7 +180,7 @@ class QueryEvaluator:
         self,
         context: Context,
         node: ast.Identifier,
-    ) -> str | F | ast.Identifier:
+    ) -> Any:
         if node.context == ast.Context.LOAD:
             if node.name in context.builtins:
                 return context.builtins[node.name]
@@ -198,7 +198,7 @@ class QueryEvaluator:
         self,
         context: Context,
         node: ast.Attribute,
-    ) -> str | F | ast.Attribute:
+    ) -> Any:
         if node.context == ast.Context.LOAD:
             owner = self.evaluate_node(node.owner, context)
             attname = cast(str, self.evaluate_node(node.name, context))
@@ -309,7 +309,7 @@ class QueryEvaluator:
         self,
         context: Context,
         node: ast.Operation,
-    ) -> None | bool | int | float | complex | str | Sequence | F | Value | Q:
+    ) -> Any:
         if node.operator.arity == 1:
             return self.evaluate_operation_arity_1(context, node)
 
@@ -322,7 +322,7 @@ class QueryEvaluator:
         self,
         context: Context,
         node: ast.Operation,
-    ) -> None | bool | int | float | complex | str | Sequence | F | Value | Q:
+    ) -> Any:
         operate = self.__class__.Operator.Unary.dispatcher.get(
             node.operator.symbols[0].value,
             None,
@@ -345,7 +345,7 @@ class QueryEvaluator:
         self,
         context: Context,
         node: ast.Operation,
-    ) -> None | bool | int | float | complex | str | Sequence | F | Value | Q:
+    ) -> Any:
         operate = self.__class__.Operator.Binary.dispatcher.get(
             node.operator.symbols[0].value,
             None,
@@ -373,7 +373,7 @@ class QueryEvaluator:
         self,
         context: Context,
         node: ast.Operation,
-    ) -> None | bool | int | float | complex | str | Sequence | F | Value | Q:
+    ) -> Any:
         raise NotImplementedError(
             f"{self.__class__.__qualname__}.evaluate_operation_dynamic_arity"
             f" is not implemented for operator: {node.operator!r}"
