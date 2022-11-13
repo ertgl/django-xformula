@@ -25,10 +25,10 @@ xformula = "^0.1.0"
 [tool.poetry.group.dev.dependencies]
 black = "^22.10.0"
 commitizen = "^2.35.0"
+django-stubs = {extras = ["compatible-mypy"], version = "^1.13.0"}
 isort = "^5.10.1"
 mypy = "^0.982"
 pycln = "^2.1.1"
-django-stubs = {extras = ["compatible-mypy"], version = "^1.13.0"}
 
 
 [tool.poetry.group.rel.dependencies]
