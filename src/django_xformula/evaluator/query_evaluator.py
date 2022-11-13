@@ -4,7 +4,7 @@ from operator import matmul
 from typing import Any, TypeVar, cast
 
 from django.db.models import F
-from xformula.syntax import Parser, ast
+from xformula.syntax import Associativity, Parser, Placement, ast
 
 from django_xformula.errors import ForbiddenAttribute, ForbiddenCall
 from django_xformula.evaluator.bidirectional_operator import BidirectionalOperator
@@ -99,6 +99,16 @@ class QueryEvaluator:
                 "||": BidirectionalOperator.or_,
                 "and": BidirectionalOperator.and_,
                 "or": BidirectionalOperator.or_,
+            }
+
+        class Ternary:
+
+            dispatcher = {
+                (
+                    ("?", ":"),
+                    Associativity.RIGHT_TO_LEFT,
+                    Placement.LEFT,
+                ): BidirectionalOperator.cond
             }
 
     parser: Parser
@@ -316,6 +326,9 @@ class QueryEvaluator:
         if node.operator.arity == 2:
             return self.evaluate_operation_arity_2(context, node)
 
+        if node.operator.arity == 3:
+            return self.evaluate_operation_arity_3(context, node)
+
         return self.evaluate_operation_dynamic_arity(context, node)
 
     def evaluate_operation_arity_1(
@@ -368,6 +381,48 @@ class QueryEvaluator:
         )
 
         return operate(lhs, rhs)
+
+    def evaluate_operation_arity_3(
+        self,
+        context: Context,
+        node: ast.Operation,
+    ) -> Any:
+        operator_key = (
+            (
+                node.operator.symbols[0].value,
+                node.operator.symbols[1].value,
+            ),
+            node.operator.associativity,
+            node.operator.placement,
+        )
+
+        operate = self.__class__.Operator.Ternary.dispatcher.get(
+            operator_key,
+            None,
+        )
+
+        if not callable(operate):
+            raise NotImplementedError(
+                f"{self.__class__.__qualname__}.evaluate_operation_arity_3"
+                f" is not implemented for operator: {node.operator!r}"
+            )
+
+        leaf_1 = self.evaluate_node(
+            node.operands[0],
+            context=context,
+        )
+
+        leaf_2 = self.evaluate_node(
+            node.operands[1],
+            context=context,
+        )
+
+        leaf_3 = self.evaluate_node(
+            node.operands[2],
+            context=context,
+        )
+
+        return operate(leaf_1, leaf_2, leaf_3)
 
     def evaluate_operation_dynamic_arity(
         self,

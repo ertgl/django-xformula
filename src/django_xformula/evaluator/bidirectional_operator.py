@@ -1,40 +1,10 @@
-from decimal import Decimal
-from operator import (
-    add,
-    eq,
-    floordiv,
-    ge,
-    gt,
-    iand,
-    inv,
-    ior,
-    is_,
-    is_not,
-    le,
-    lshift,
-    lt,
-    mod,
-    ne,
-    neg,
-    not_,
-    pos,
-    rshift,
-    sub,
-    truediv,
-)
+from operator import neg, pos
 from types import NoneType
-from typing import Any, TypeGuard, TypeVar, cast, overload
+from typing import Any, Literal, TypeVar, cast, overload
 
-from django.db.models import BooleanField, Field, Model, Q
-from django.db.models.expressions import (
-    BaseExpression,
-    Case,
-    Combinable,
-    F,
-    Value,
-    When,
-)
-from django.db.models.functions import Floor
+from django.db.models import BooleanField, CharField, Field, Model, Q, QuerySet
+from django.db.models.expressions import Case, Combinable, F, Value, When
+from django.db.models.functions import Cast, Floor
 from django.db.models.lookups import (
     Exact,
     GreaterThan,
@@ -43,216 +13,368 @@ from django.db.models.lookups import (
     IsNull,
     LessThan,
     LessThanOrEqual,
+    Lookup,
 )
 from django.db.models.options import Options
-
-from django_xformula.db.lookups import Pure
 
 __all__ = [
     "BidirectionalOperator",
 ]
 
+from django_xformula.db.lookups import Pure
 
 T = TypeVar("T")
 
 
 class BidirectionalOperator:
-    class QEnum:
-
-        EMPTY = Q()
-
-        # Pointer; will not belong to any query.
-        NEGATED = ~Q(Exact(Value(False), Value(False)))
-
-    class Optimization:
-
-        LITERAL_TYPES = (
-            NoneType,
-            bool,
-            int,
-            float,
-            complex,
-            str,
-        )
-
-        EXCLUDED_TYPES: dict[str, tuple[type, ...]] = dict(
-            # Floating-point arithmetic implementations may vary
-            # between DBs / runtimes.
-            # For consistency of results, get operations done, in DBs.
-            arithmetic=(float, Decimal),
-            bitwise=(float, Decimal),
-            compare=(float, Decimal),
-            logical=(float, Decimal),
+    @classmethod
+    def is_constant(
+        cls,
+        py_object: Any,
+    ) -> bool:
+        return isinstance(
+            py_object,
+            (NoneType, bool, int, float, complex, str),
         )
 
     @classmethod
-    def is_q(
+    def all_constant(
         cls,
-        py_value: Any,
-    ) -> TypeGuard[Q]:
-        return isinstance(py_value, Q)
+        *py_objects: Any,
+    ) -> bool:
+        return all(map(cls.is_constant, py_objects))
 
     @classmethod
     @overload
-    def is_q_or_combinable(
-        cls,
-        q: Q,
-    ) -> TypeGuard[Q]:
-        ...
-
-    @classmethod
-    @overload
-    def is_q_or_combinable(
+    def is_combinable(
         cls,
         combinable: Combinable,
-    ) -> TypeGuard[Combinable]:
+    ) -> Literal[True]:
         ...
 
     @classmethod
-    def is_q_or_combinable(
+    @overload
+    def is_combinable(
         cls,
-        py_value,
-    ):
-        return cls.is_q(py_value) or cls.is_combinable(py_value)
-
-    @classmethod
-    def is_expression(
-        cls,
-        py_value: Any,
-    ) -> TypeGuard[BaseExpression]:
-        return isinstance(py_value, BaseExpression)
+        py_object: T,
+    ) -> Literal[False]:
+        ...
 
     @classmethod
     def is_combinable(
         cls,
-        py_value: Any,
-    ) -> TypeGuard[Combinable]:
-        return isinstance(py_value, Combinable)
-
-    @classmethod
-    def is_f(
-        cls,
-        py_value: Any,
-    ) -> TypeGuard[F]:
-        return isinstance(py_value, F)
-
-    @classmethod
-    def is_value(
-        cls,
-        py_value: Any,
-    ) -> TypeGuard[Value]:
-        return isinstance(py_value, Value)
-
-    @classmethod
-    def is_model_instance(
-        cls,
-        py_value: Any,
-    ) -> TypeGuard[Model]:
-        return isinstance(py_value, Model)
-
-    @classmethod
-    def is_field(
-        cls,
-        py_value: Any,
-    ) -> TypeGuard[Field]:
-        return isinstance(py_value, Field)
-
-    @classmethod
-    def is_constant(
-        cls,
-        py_value: Any,
-    ) -> TypeGuard[Any]:
-        py_value = cls.ensure_if_py_value(py_value)
-        return isinstance(py_value, cls.Optimization.LITERAL_TYPES)
-
-    @classmethod
-    def any_q(
-        cls,
-        *py_values: Any,
-    ) -> bool:
-        return any(map(cls.is_q, py_values))
+        py_object,
+    ):
+        return isinstance(py_object, Combinable)
 
     @classmethod
     def any_combinable(
         cls,
-        *py_values: Any,
+        *py_objects: Any,
     ) -> bool:
-        return any(map(cls.is_combinable, py_values))
+        return any(map(cls.is_combinable, py_objects))
 
     @classmethod
-    def any_constant(
+    @overload
+    def can_be_combinable(
         cls,
-        *maybe_combinables: Any,
-    ) -> bool:
-        return any(map(cls.is_constant, maybe_combinables))
+        q: Q,
+    ) -> Literal[False]:
+        ...
 
     @classmethod
-    def any_q_or_combinable(
+    @overload
+    def can_be_combinable(
         cls,
-        *py_values: Any,
+        queryset: QuerySet,
+    ) -> Literal[False]:
+        ...
+
+    @classmethod
+    @overload
+    def can_be_combinable(
+        cls,
+        combinable: Combinable,
+    ) -> Literal[False]:
+        ...
+
+    @classmethod
+    @overload
+    def can_be_combinable(
+        cls,
+        py_object: Any,
+    ) -> Literal[True]:
+        ...
+
+    @classmethod
+    def can_be_combinable(
+        cls,
+        py_object,
+    ):
+        return not isinstance(
+            py_object,
+            (
+                Q,
+                QuerySet,  # type: ignore[misc]
+            ),
+        )
+
+    @classmethod
+    def any_can_be_combinable(
+        cls,
+        *py_objects: Any,
+    ) -> bool:
+        return any(map(cls.can_be_combinable, py_objects))
+
+    @classmethod
+    @overload
+    def ensure_if_combinable(
+        cls,
+        q: Q,
+    ) -> Q:
+        ...
+
+    @classmethod
+    @overload
+    def ensure_if_combinable(
+        cls,
+        queryset: QuerySet,  # type: ignore[misc]
+    ) -> QuerySet:  # type: ignore[misc]
+        ...
+
+    @classmethod
+    @overload
+    def ensure_if_combinable(
+        cls,
+        maybe_combinable: Any,
+    ) -> Combinable:
+        ...
+
+    @classmethod
+    def ensure_if_combinable(
+        cls,
+        py_object,
+    ):
+        if not cls.can_be_combinable(py_object):
+            return py_object
+
+        if cls.is_combinable(py_object):
+            return py_object
+
+        if cls.is_model_field(py_object):
+            field = cast(Field, py_object)
+            return F(field.attname)
+
+        if cls.is_model_instance(py_object):
+            model_instance = cast(Model, py_object)
+            model_options = cast(
+                Options,
+                getattr(model_instance.__class__, "_meta", None),
+            )
+            pk_field = cast(
+                str | Field | None,
+                getattr(model_options, "pk", None),
+            )
+            pk_field_attname = (
+                pk_field
+                if isinstance(pk_field, str)
+                else getattr(pk_field, "attname", "pk")
+            )
+            pk = getattr(model_instance, pk_field_attname)
+            return pk
+
+        return Value(py_object)
+
+    @classmethod
+    def test_combinable(
+        cls,
+        combinable: Combinable,
+        negated: bool = False,
+    ) -> Combinable:
+        return Case(
+            When(
+                In(
+                    Cast(combinable, CharField()),
+                    [
+                        Cast(Value(None), CharField()),
+                        Cast(Value(False), CharField()),
+                        Cast(Value(0), CharField()),
+                        Cast(Value(0.0), CharField()),
+                        Cast(Value(""), CharField()),
+                    ],
+                ),
+                then=Value(True if negated else False),
+            ),
+            default=Value(False if negated else True),
+            output_field=BooleanField(),
+        )
+
+    @classmethod
+    @overload
+    def is_model_field(
+        cls,
+        model: Field,
+    ) -> Literal[True]:
+        ...
+
+    @classmethod
+    @overload
+    def is_model_field(
+        cls,
+        py_object: T,
+    ) -> Literal[False]:
+        ...
+
+    @classmethod
+    def is_model_field(
+        cls,
+        py_object,
+    ):
+        return isinstance(py_object, Field)
+
+    @classmethod
+    @overload
+    def is_model_instance(
+        cls,
+        model: Model,
+    ) -> Literal[True]:
+        ...
+
+    @classmethod
+    @overload
+    def is_model_instance(
+        cls,
+        py_object: T,
+    ) -> Literal[False]:
+        ...
+
+    @classmethod
+    def is_model_instance(
+        cls,
+        py_object,
+    ):
+        return isinstance(py_object, Model)
+
+    @classmethod
+    @overload
+    def is_q(
+        cls,
+        q: Q,
+    ) -> Literal[True]:
+        ...
+
+    @classmethod
+    @overload
+    def is_q(
+        cls,
+        py_object: T,
+    ) -> Literal[False]:
+        ...
+
+    @classmethod
+    def is_q(
+        cls,
+        py_object,
+    ):
+        return isinstance(py_object, Q)
+
+    @classmethod
+    @overload
+    def ensure_if_q(
+        cls,
+        combinable: Combinable,
+    ) -> Q:
+        ...
+
+    @classmethod
+    @overload
+    def ensure_if_q(
+        cls,
+        q: Q,
+    ) -> Q:
+        ...
+
+    @classmethod
+    @overload
+    def ensure_if_q(
+        cls,
+        queryset: QuerySet,  # type: ignore[misc]
+    ) -> QuerySet:  # type: ignore[misc]
+        ...
+
+    @classmethod
+    @overload
+    def ensure_if_q(
+        cls,
+        py_object: T,
+    ) -> Q:
+        ...
+
+    @classmethod
+    def ensure_if_q(
+        cls,
+        py_object,
+    ):
+        if cls.is_q(py_object):
+            return py_object
+
+        if cls.is_queryset(py_object):
+            return py_object
+
+        combinable = cls.ensure_if_combinable(py_object)
+
+        if isinstance(combinable, Lookup):
+            return Q(combinable)
+
+        return Q(cls.test_combinable(combinable))
+
+    @classmethod
+    @overload
+    def is_queryset(
+        cls,
+        queryset: QuerySet,
+    ) -> Literal[True]:
+        ...
+
+    @classmethod
+    @overload
+    def is_queryset(
+        cls,
+        py_object: T,
+    ) -> Literal[False]:
+        ...
+
+    @classmethod
+    def is_queryset(
+        cls,
+        py_object,
+    ):
+        return isinstance(
+            py_object,
+            QuerySet,  # type: ignore[misc]
+        )
+
+    @classmethod
+    def any_queryable(
+        cls,
+        *py_objects: Any,
     ) -> bool:
         return any(
             map(
-                lambda py_value: (cls.is_q(py_value) or cls.is_combinable(py_value)),
-                py_values,
+                lambda py_object: (
+                    cls.is_combinable(py_object)
+                    or cls.is_model_field(py_object)
+                    or cls.is_model_instance(py_object)
+                    or cls.is_q(py_object)
+                    or cls.is_queryset(py_object)
+                ),
+                py_objects,
             ),
         )
 
     @classmethod
     @overload
-    def ensure_if_combinable(
-        cls,
-        combinable: Combinable,
-    ) -> Combinable:
-        ...
-
-    @classmethod
-    @overload
-    def ensure_if_combinable(
-        cls,
-        model_instance: Model,
-    ) -> Any:
-        ...
-
-    @classmethod
-    @overload
-    def ensure_if_combinable(
-        cls,
-        py_value: T,
-    ) -> T:
-        ...
-
-    @classmethod
-    def ensure_if_combinable(
-        cls,
-        maybe_combinable,
-    ):
-        if isinstance(maybe_combinable, (list, set, tuple)):
-            container_type = type(maybe_combinable)
-            return container_type(map(cls.ensure_if_combinable, maybe_combinable))
-
-        if cls.is_combinable(maybe_combinable):
-            combinable = cast(Combinable, maybe_combinable)
-            return combinable
-
-        if cls.is_model_instance(maybe_combinable):
-            model_instance = cast(Model, maybe_combinable)
-            model_options = cast(Options, getattr(model_instance.__class__, "_meta"))
-            if model_options.abstract or model_options.pk is None:
-                return model_instance
-            pk_attname = cls.ensure_field_attname(model_options.pk)
-            pk = getattr(model_instance, pk_attname)
-            return Value(pk)
-
-        if not cls.is_q(maybe_combinable) and not cls.is_expression(maybe_combinable):
-            value = Value(maybe_combinable)
-            return value
-
-        return maybe_combinable
-
-    @classmethod
-    @overload
-    def ensure_if_py_value(
+    def ensure_py_object(
         cls,
         value: Value,
     ) -> Any:
@@ -260,301 +382,86 @@ class BidirectionalOperator:
 
     @classmethod
     @overload
-    def ensure_if_py_value(
+    def ensure_py_object(
         cls,
-        py_value: T,
+        py_object: T,
     ) -> T:
         ...
 
     @classmethod
-    def ensure_if_py_value(
+    def ensure_py_object(
         cls,
-        maybe_value,
+        py_object,
     ):
-        if cls.is_value(maybe_value):
-            value = cast(Value, maybe_value)
-            return value.value
-        return maybe_value
-
-    @classmethod
-    @overload
-    def ensure_field_attname(
-        cls,
-        field: Field,
-    ) -> str:
-        ...
-
-    @classmethod
-    @overload
-    def ensure_field_attname(
-        cls,
-        py_value: T,
-    ) -> T:
-        ...
-
-    @classmethod
-    def ensure_field_attname(
-        cls,
-        py_value,
-    ):
-        if cls.is_field(py_value):
-            field = cast(Field, py_value)
-            return field.attname
-
-        return py_value
-
-    @classmethod
-    def split_qs(
-        cls,
-        *py_values: Any,
-    ) -> tuple[list[Q], list[Combinable]]:
-        qs: list[Q] = []
-        combinables: list[Combinable] = []
-
-        for py_value in py_values:
-            if cls.is_q(py_value):
-                q = cast(Q, py_value)
-                qs.append(q)
-            else:
-                combinable = cls.ensure_if_combinable(py_value)
-                combinables.append(combinable)
-
-        return qs, combinables
-
-    @classmethod
-    def split_values(
-        cls,
-        *maybe_combinables: Any,
-    ) -> tuple[list[Value], list[Any]]:
-        values: list[Value] = []
-        py_values: list[Any] = []
-
-        for maybe_combinable in maybe_combinables:
-            maybe_combinable = cls.ensure_if_combinable(maybe_combinable)
-
-            if cls.is_value(maybe_combinable):
-                value = cast(Value, maybe_combinable)
-                values.append(value)
-            else:
-                py_value = cls.ensure_if_py_value(maybe_combinable)
-                py_values.append(py_value)
-
-        return values, py_values
-
-    @classmethod
-    def is_falsy_combinable(
-        cls,
-        maybe_combinable: Any,
-    ) -> bool:
-        py_value = cls.ensure_if_py_value(maybe_combinable)
-        return not py_value
-
-    @classmethod
-    def should_optimize_for(
-        cls,
-        operation_name: str,
-        *maybe_combinables: Any,
-    ) -> bool:
-        if operation_name not in cls.Optimization.EXCLUDED_TYPES:
-            return True
-        types = cls.Optimization.EXCLUDED_TYPES[operation_name]
-        return all(
-            map(
-                lambda py_value: not isinstance(py_value, types),
-                map(
-                    cls.ensure_if_py_value,
-                    maybe_combinables,
-                ),
-            ),
-        )
-
-    @classmethod
-    def q_test(
-        cls,
-        maybe_combinable: Any,
-    ) -> Q:
-        if cls.is_q(maybe_combinable):
-            q = cast(Q, maybe_combinable)
-            return q
-
-        combinable = cls.ensure_if_combinable(maybe_combinable)
-
-        if cls.is_falsy_combinable(combinable):
-            return cls.QEnum.NEGATED
-
-        elif cls.is_value(combinable):
-            return cls.QEnum.EMPTY
-
-        return Q(
-            Case(
-                When(
-                    Pure(combinable),
-                    then=Value(True),
-                ),
-                default=Value(False),
-                output_field=BooleanField(),
-            ),
-        )
-
-    @classmethod
-    def q_and(
-        cls,
-        q1: Q,
-        q2: Q,
-    ) -> Q:
-        if not q1.children and not q2.children:
-            return cls.QEnum.EMPTY
-
-        if q1.children and not q2.children:
-            return q1
-
-        if not q1.children and q2.children:
-            return q2
-
-        if q1 is cls.QEnum.NEGATED and q2 is cls.QEnum.NEGATED:
-            return cls.QEnum.NEGATED
-
-        if q1 is cls.QEnum.NEGATED and q2 is not cls.QEnum.NEGATED:
-            return ~q2
-
-        if q1 is not cls.QEnum.NEGATED and q2 is cls.QEnum.NEGATED:
-            return ~q1
-
-        return q1 & q2
-
-    @classmethod
-    def q_xor(
-        cls,
-        q1: Q,
-        q2: Q,
-    ) -> Q:
-        if not q1.children and not q2.children:
-            return cls.QEnum.EMPTY
-
-        if q1.children and not q2.children:
-            return ~q1
-
-        if not q1.children and q2.children:
-            return ~q2
-
-        if q1 is cls.QEnum.NEGATED and q2 is cls.QEnum.NEGATED:
-            return cls.QEnum.NEGATED
-
-        if q1 is cls.QEnum.NEGATED and q2 is not cls.QEnum.NEGATED:
-            return q2
-
-        if q1 is not cls.QEnum.NEGATED and q2 is cls.QEnum.NEGATED:
-            return q1
-
-        return q1 ^ q2
-
-    @classmethod
-    def q_or(
-        cls,
-        q1: Q,
-        q2: Q,
-    ) -> Q:
-        if not q1.children and not q2.children:
-            return cls.QEnum.EMPTY
-
-        if q1.children and not q2.children:
-            return q1
-
-        if not q1.children and q2.children:
-            return q2
-
-        if q1 is cls.QEnum.NEGATED and q2 is cls.QEnum.NEGATED:
-            return cls.QEnum.NEGATED
-
-        if q1 is cls.QEnum.NEGATED and q2 is not cls.QEnum.NEGATED:
-            return q2
-
-        if q1 is not cls.QEnum.NEGATED and q2 is cls.QEnum.NEGATED:
-            return q1
-
-        return q1 | q2
+        if isinstance(py_object, Value):
+            return py_object.value
+        return py_object
 
     @classmethod
     def pos(
         cls,
-        operand: Any,
+        py_object: Any,
     ) -> Any:
-        if not cls.is_combinable(operand):
-            return pos(operand)
+        if not cls.is_combinable(py_object):
+            return pos(py_object)
 
-        operand = cls.ensure_if_combinable(operand)
-        return operand
+        return py_object
 
     @classmethod
     def neg(
         cls,
-        operand: Any,
+        py_object: Any,
     ) -> Any:
-        if not cls.is_combinable(operand):
-            return neg(operand)
+        if cls.is_q(py_object):
+            return ~py_object
 
-        operand = cls.ensure_if_combinable(operand)
+        if cls.is_queryset(py_object):
+            queryset = cast(QuerySet, py_object)
+            return queryset.model.objects.difference(queryset)
 
-        if cls.should_optimize_for("arithmetic", operand):
-
-            if cls.is_value(operand):
-                operand = cast(Value, operand)
-                return Value(neg(operand.value))
-
-        return neg(operand)
+        return neg(py_object)
 
     @classmethod
     def not_(
         cls,
-        operand: Any,
+        py_object: Any,
     ) -> Any:
-        if not cls.is_q_or_combinable(operand):
-            return not_(operand)
+        if cls.is_q(py_object):
+            return ~py_object
 
-        operand = cls.ensure_if_combinable(operand)
+        if cls.is_queryset(py_object):
+            queryset = cast(QuerySet, py_object)
+            return queryset.model.objects.difference(queryset)
 
-        if cls.is_q(operand):
-            q = cast(Q, operand)
+        if cls.is_combinable(py_object):
+            combinable = cast(Combinable, py_object)
+            return cls.test_combinable(
+                combinable,
+                negated=True,
+            )
 
-            if not q.children:
-                if not q.negated:
-                    return cls.QEnum.NEGATED
-                else:
-                    return cls.QEnum.EMPTY
-            return ~q
-
-        if not cls.is_value(operand):
-            return ~cls.q_test(operand)
-
-        if cls.should_optimize_for("logical", operand):
-
-            if cls.is_value(operand):
-                operand = cast(Value, operand)
-                return Value(not_(operand.value))
-
-        return not_(operand)
+        return not py_object
 
     @classmethod
     def inv(
         cls,
-        operand: Any,
+        py_object: Any,
     ) -> Any:
-        if not cls.is_q_or_combinable(operand):
-            return inv(operand)
+        if cls.is_q(py_object):
+            return ~py_object
 
-        operand = cls.ensure_if_combinable(operand)
+        if cls.is_queryset(py_object):
+            queryset = cast(QuerySet, py_object)
+            return queryset.model.objects.difference(queryset)
 
-        if cls.should_optimize_for("bitwise", operand):
+        if cls.is_combinable(py_object):
+            combinable = cast(Combinable, py_object)
+            return cls.test_combinable(
+                combinable,
+                negated=True,
+            )
 
-            if cls.is_value(operand):
-                operand = cast(Value, operand)
-                return Value(inv(operand.value))
-
-        if cls.is_q(operand):
-            q = cast(Q, operand)
-            return ~q
-
-        return inv(operand)
+        return ~py_object
 
     @classmethod
     def pow(
@@ -563,19 +470,12 @@ class BidirectionalOperator:
         rhs: Any,
     ) -> Any:
         if not cls.any_combinable(lhs, rhs):
-            return pow(lhs, rhs)
+            return lhs**rhs
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
 
-        if cls.should_optimize_for("arithmetic", lhs, rhs):
-
-            if cls.is_value(lhs) and cls.is_value(rhs):
-                lhs = cast(Value, lhs)
-                rhs = cast(Value, rhs)
-                return Value(pow(lhs.value, rhs.value))
-
-        return pow(lhs, rhs)
+        return lhs**rhs
 
     @classmethod
     def mul(
@@ -589,13 +489,6 @@ class BidirectionalOperator:
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
 
-        if cls.should_optimize_for("arithmetic", lhs, rhs):
-
-            if cls.is_value(lhs) and cls.is_value(rhs):
-                lhs = cast(Value, lhs)
-                rhs = cast(Value, rhs)
-                return Value(lhs.value * rhs.value)
-
         return lhs * rhs
 
     @classmethod
@@ -605,19 +498,12 @@ class BidirectionalOperator:
         rhs: Any,
     ) -> Any:
         if not cls.any_combinable(lhs, rhs):
-            return truediv(lhs, rhs)
+            return lhs / rhs
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
 
-        if cls.should_optimize_for("arithmetic", lhs, rhs):
-
-            if cls.is_value(lhs) and cls.is_value(rhs):
-                lhs = cast(Value, lhs)
-                rhs = cast(Value, rhs)
-                return Value(truediv(lhs.value, rhs.value))
-
-        return truediv(lhs, rhs)
+        return lhs / rhs
 
     @classmethod
     def floordiv(
@@ -626,17 +512,10 @@ class BidirectionalOperator:
         rhs: Any,
     ) -> Any:
         if not cls.any_combinable(lhs, rhs):
-            return floordiv(lhs, rhs)
+            return lhs // rhs
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
-
-        if cls.should_optimize_for("arithmetic", lhs, rhs):
-
-            if cls.is_value(lhs) and cls.is_value(rhs):
-                lhs = cast(Value, lhs)
-                rhs = cast(Value, rhs)
-                return Value(floordiv(lhs.value, rhs.value))
 
         return Floor(lhs / rhs)
 
@@ -647,19 +526,12 @@ class BidirectionalOperator:
         rhs: Any,
     ) -> Any:
         if not cls.any_combinable(lhs, rhs):
-            return mod(lhs, rhs)
+            return lhs % rhs
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
 
-        if cls.should_optimize_for("arithmetic", lhs, rhs):
-
-            if cls.is_value(lhs) and cls.is_value(rhs):
-                lhs = cast(Value, lhs)
-                rhs = cast(Value, rhs)
-                return Value(mod(lhs.value, rhs.value))
-
-        return mod(lhs, rhs)
+        return lhs % rhs
 
     @classmethod
     def add(
@@ -667,20 +539,28 @@ class BidirectionalOperator:
         lhs: Any,
         rhs: Any,
     ) -> Any:
-        if not cls.any_combinable(lhs, rhs):
-            return add(lhs, rhs)
+        if not cls.any_queryable(lhs, rhs):
+            return lhs + rhs
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
 
-        if cls.should_optimize_for("arithmetic", lhs, rhs):
+        if cls.is_combinable(lhs) and cls.is_combinable(rhs):
+            return lhs + rhs
 
-            if cls.is_value(lhs) and cls.is_value(rhs):
-                lhs = cast(Value, lhs)
-                rhs = cast(Value, rhs)
-                return Value(add(lhs.value, rhs.value))
+        lhs = cls.ensure_if_q(lhs)
+        rhs = cls.ensure_if_q(rhs)
 
-        return add(lhs, rhs)
+        if cls.is_queryset(lhs) and cls.is_queryset(rhs):
+            return lhs.union(rhs)
+
+        if cls.is_queryset(lhs) and not cls.is_queryset(rhs):
+            return lhs.union(lhs.model.objects.filter(rhs))
+
+        if not cls.is_queryset(lhs) and cls.is_queryset(rhs):
+            return rhs.model.objects.filter(lhs).union(rhs)
+
+        return lhs | rhs
 
     @classmethod
     def sub(
@@ -688,20 +568,28 @@ class BidirectionalOperator:
         lhs: Any,
         rhs: Any,
     ) -> Any:
-        if not cls.any_combinable(lhs, rhs):
-            return sub(lhs, rhs)
+        if not cls.any_queryable(lhs, rhs):
+            return lhs - rhs
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
 
-        if cls.should_optimize_for("arithmetic", lhs, rhs):
+        if cls.is_combinable(lhs) and cls.is_combinable(rhs):
+            return lhs - rhs
 
-            if cls.is_value(lhs) and cls.is_value(rhs):
-                lhs = cast(Value, lhs)
-                rhs = cast(Value, rhs)
-                return Value(sub(lhs.value, rhs.value))
+        lhs = cls.ensure_if_q(lhs)
+        rhs = cls.ensure_if_q(rhs)
 
-        return sub(lhs, rhs)
+        if cls.is_queryset(lhs) and cls.is_queryset(rhs):
+            return lhs.difference(rhs)
+
+        if cls.is_queryset(lhs) and not cls.is_queryset(rhs):
+            return lhs.filter(~rhs)
+
+        if not cls.is_queryset(lhs) and cls.is_queryset(rhs):
+            return rhs.model.objects.filter(lhs).difference(rhs)
+
+        return lhs & ~rhs
 
     @classmethod
     def lshift(
@@ -710,12 +598,12 @@ class BidirectionalOperator:
         rhs: Any,
     ) -> Any:
         if not cls.any_combinable(lhs, rhs):
-            return lshift(lhs, rhs)
+            return lhs << rhs
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
 
-        return lhs.bitleftshift(rhs)
+        return lhs.bitleftshift(rhs)  # type: ignore[arg-type]
 
     @classmethod
     def rshift(
@@ -724,46 +612,12 @@ class BidirectionalOperator:
         rhs: Any,
     ) -> Any:
         if not cls.any_combinable(lhs, rhs):
-            return rshift(lhs, rhs)
+            return lhs >> rhs
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
 
-        return lhs.bitrightshift(rhs)
-
-    @classmethod
-    def and_(
-        cls,
-        lhs: Any,
-        rhs: Any,
-    ) -> Any:
-        if not cls.any_q_or_combinable(lhs, rhs):
-            return lhs and rhs
-
-        qs, combinables = cls.split_qs(lhs, rhs)
-
-        if not qs and combinables:
-            return cls.q_test(combinables[0]) & cls.q_test(combinables[1])
-
-        if qs and not combinables:
-            return cls.q_and(qs[0], qs[1])
-
-        if qs and combinables:
-            q1 = qs[0]
-
-            if cls.is_falsy_combinable(combinables[0]):
-                return ~q1
-
-            elif cls.is_value(combinables[0]):
-                return q1
-
-            else:
-                q2 = cls.q_test(combinables[0])
-                return cls.q_and(q1, q2)
-
-        raise NotImplementedError(
-            f"{cls.__qualname__}.and_ is not implemented for: " f" {[lhs, rhs]!r}"
-        )
+        return lhs.bitrightshift(rhs)  # type: ignore[arg-type]
 
     @classmethod
     def iand(
@@ -771,33 +625,19 @@ class BidirectionalOperator:
         lhs: Any,
         rhs: Any,
     ) -> Any:
-        if not cls.any_q_or_combinable(lhs, rhs):
-            return iand(lhs, rhs)
+        if not cls.any_queryable(lhs, rhs):
+            return lhs & rhs
 
-        qs, combinables = cls.split_qs(lhs, rhs)
+        lhs = cls.ensure_if_combinable(lhs)
+        rhs = cls.ensure_if_combinable(rhs)
 
-        if not qs and combinables:
-            return combinables[0].bitand(combinables[1])  # type: ignore[arg-type]
+        if cls.is_combinable(lhs) and cls.is_combinable(rhs):
+            return lhs.bitand(rhs)  # type: ignore[arg-type]
 
-        if qs and not combinables:
-            return cls.q_and(qs[0], qs[1])
+        lhs = cls.ensure_if_q(lhs)
+        rhs = cls.ensure_if_q(rhs)
 
-        if qs and combinables:
-            q1 = qs[0]
-
-            if cls.is_falsy_combinable(combinables[0]):
-                return ~q1
-
-            elif cls.is_value(combinables[0]):
-                return q1
-
-            else:
-                q2 = cls.q_test(combinables[0])
-                return cls.q_and(q1, q2)
-
-        raise NotImplementedError(
-            f"{cls.__qualname__}.iand is not implemented for: " f" {[lhs, rhs]!r}"
-        )
+        return lhs & rhs
 
     @classmethod
     def xor(
@@ -805,67 +645,19 @@ class BidirectionalOperator:
         lhs: Any,
         rhs: Any,
     ) -> Any:
-        if not cls.any_q_or_combinable(lhs, rhs):
+        if not cls.any_queryable(lhs, rhs):
             return lhs ^ rhs
 
-        qs, combinables = cls.split_qs(lhs, rhs)
+        lhs = cls.ensure_if_combinable(lhs)
+        rhs = cls.ensure_if_combinable(rhs)
 
-        if not qs and combinables:
-            return combinables[0].bitxor(combinables[1])  # type: ignore[arg-type]
+        if cls.is_combinable(lhs) and cls.is_combinable(rhs):
+            return lhs.bitxor(rhs)  # type: ignore[arg-type]
 
-        if qs and not combinables:
-            return cls.q_xor(qs[0], qs[1])
+        lhs = cls.ensure_if_q(lhs)
+        rhs = cls.ensure_if_q(rhs)
 
-        if qs and combinables:
-            q1 = qs[0]
-
-            if cls.is_falsy_combinable(combinables[0]):
-                return q1
-
-            elif cls.is_value(combinables[0]):
-                return q1
-
-            else:
-                q2 = cls.q_test(combinables[0])
-                return cls.q_xor(q1, q2)
-
-        raise NotImplementedError(
-            f"{cls.__qualname__}.xor is not implemented for: {[lhs, rhs]!r}",
-        )
-
-    @classmethod
-    def or_(
-        cls,
-        lhs: Any,
-        rhs: Any,
-    ) -> Any:
-        if not cls.any_q_or_combinable(lhs, rhs):
-            return lhs or rhs
-
-        qs, combinables = cls.split_qs(lhs, rhs)
-
-        if not qs and combinables:
-            return cls.q_test(combinables[0]) | cls.q_test(combinables[1])
-
-        if qs and not combinables:
-            return cls.q_or(qs[0], qs[1])
-
-        if qs and combinables:
-            q1 = qs[0]
-
-            if cls.is_falsy_combinable(combinables[0]):
-                return q1
-
-            elif cls.is_value(combinables[0]):
-                return q1
-
-            else:
-                q2 = cls.q_test(combinables[0])
-                return cls.q_or(q1, q2)
-
-        raise NotImplementedError(
-            f"{cls.__qualname__}.or_ is not implemented for: " f" {[lhs, rhs]!r}"
-        )
+        return lhs ^ rhs
 
     @classmethod
     def ior(
@@ -873,35 +665,19 @@ class BidirectionalOperator:
         lhs: Any,
         rhs: Any,
     ) -> Any:
-        if not cls.any_q_or_combinable(lhs, rhs):
-            return ior(lhs, rhs)
+        if not cls.any_queryable(lhs, rhs):
+            return lhs | rhs
 
-        qs, combinables = cls.split_qs(lhs, rhs)
+        lhs = cls.ensure_if_combinable(lhs)
+        rhs = cls.ensure_if_combinable(rhs)
 
-        if not qs and combinables:
-            return combinables[0].bitor(
-                cast(int, combinables[1]),
-            )
+        if cls.is_combinable(lhs) and cls.is_combinable(rhs):
+            return lhs.bitor(rhs)  # type: ignore[arg-type]
 
-        if qs and not combinables:
-            return cls.q_or(qs[0], qs[1])
+        lhs = cls.ensure_if_q(lhs)
+        rhs = cls.ensure_if_q(rhs)
 
-        if qs and combinables:
-            q1 = qs[0]
-
-            if cls.is_falsy_combinable(combinables[0]):
-                return q1
-
-            elif cls.is_value(combinables[0]):
-                return q1
-
-            else:
-                q2 = cls.q_test(combinables[0])
-                return cls.q_or(q1, q2)
-
-        raise NotImplementedError(
-            f"{cls.__qualname__}.ior is not implemented for: " f" {[lhs, rhs]!r}"
-        )
+        return lhs | rhs
 
     @classmethod
     def nin(
@@ -909,13 +685,28 @@ class BidirectionalOperator:
         lhs: Any,
         rhs: Any,
     ) -> Any:
-        if not cls.any_combinable(lhs, rhs):
+        if not cls.any_queryable(lhs, rhs):
             return lhs not in rhs
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
 
-        return ~Q(In(lhs, rhs))
+        if cls.is_combinable(lhs) and cls.is_combinable(rhs):
+            return Exact(In(lhs, rhs), Value(False))
+
+        lhs = cls.ensure_if_q(lhs)
+        rhs = cls.ensure_if_q(rhs)
+
+        if cls.is_queryset(lhs) and cls.is_queryset(rhs):
+            return lhs.difference(rhs)
+
+        if cls.is_queryset(lhs) and not cls.is_queryset(rhs):
+            return lhs.filter(~rhs)
+
+        if not cls.is_queryset(lhs) and cls.is_queryset(rhs):
+            return rhs.model.objects.filter(lhs).difference(rhs)
+
+        return lhs & ~rhs
 
     @classmethod
     def in_(
@@ -923,13 +714,28 @@ class BidirectionalOperator:
         lhs: Any,
         rhs: Any,
     ) -> Any:
-        if not cls.any_combinable(lhs, rhs):
+        if not cls.any_queryable(lhs, rhs):
             return lhs in rhs
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
 
-        return Q(In(lhs, rhs))
+        if cls.is_combinable(lhs) and cls.is_combinable(rhs):
+            return In(lhs, rhs)
+
+        lhs = cls.ensure_if_q(lhs)
+        rhs = cls.ensure_if_q(rhs)
+
+        if cls.is_queryset(lhs) and cls.is_queryset(rhs):
+            return lhs.intersection(rhs)
+
+        if cls.is_queryset(lhs) and not cls.is_queryset(rhs):
+            return lhs.intersection(lhs.model.objects.filter(rhs))
+
+        if not cls.is_queryset(lhs) and cls.is_queryset(rhs):
+            return rhs.model.objects.filter(lhs).intersection(rhs)
+
+        return lhs & rhs
 
     @classmethod
     def is_not(
@@ -937,41 +743,27 @@ class BidirectionalOperator:
         lhs: Any,
         rhs: Any,
     ) -> Any:
-        if not cls.any_combinable(lhs, rhs):
+        if not cls.any_queryable(lhs, rhs):
+            if cls.all_constant(lhs, rhs):
+                return lhs != rhs
+            return lhs is not rhs
 
-            if cls.any_constant(lhs, rhs):
-                return ne(lhs, rhs)
+        lhs = cls.ensure_py_object(lhs)
+        rhs = cls.ensure_py_object(rhs)
 
-            return is_not(lhs, rhs)
+        if lhs is None and rhs is None:
+            return IsNull(Value(None), Value(False))
+
+        if lhs is None and rhs is not None:
+            return IsNull(rhs, Value(False))
+
+        if lhs is not None and rhs is None:
+            return IsNull(lhs, Value(False))
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
 
-        values, py_values = cls.split_values(lhs, rhs)
-
-        if cls.should_optimize_for("compare", lhs, rhs):
-
-            if values and not py_values:
-
-                if values[0].value is None and values[1].value is None:
-                    return Value(False)
-
-                if values[0].value == values[1].value:
-                    return Value(False)
-
-                else:
-                    return Value(True)
-
-            elif py_values and not values:
-                return ~Q(Exact(lhs, rhs))
-
-        value = values[0]
-        py_value = py_values[0]
-
-        if value.value is None:
-            return ~Q(IsNull(py_value, True))
-
-        return ~Q(Exact(lhs, rhs))
+        return Exact(Exact(lhs, rhs), Value(False))
 
     @classmethod
     def is_(
@@ -979,40 +771,27 @@ class BidirectionalOperator:
         lhs: Any,
         rhs: Any,
     ) -> Any:
-        if not cls.any_combinable(lhs, rhs):
+        if not cls.any_queryable(lhs, rhs):
+            if cls.all_constant(lhs, rhs):
+                return lhs == rhs
+            return lhs is rhs
 
-            if cls.any_constant(lhs, rhs):
-                return eq(lhs, rhs)
+        lhs = cls.ensure_py_object(lhs)
+        rhs = cls.ensure_py_object(rhs)
 
-            return is_(lhs, rhs)
+        if lhs is None and rhs is None:
+            return IsNull(Value(None), Value(True))
+
+        if lhs is None and rhs is not None:
+            return IsNull(rhs, Value(True))
+
+        if lhs is not None and rhs is None:
+            return IsNull(lhs, Value(True))
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
 
-        values, py_values = cls.split_values(lhs, rhs)
-
-        if cls.should_optimize_for("compare", lhs, rhs):
-
-            if values and not py_values:
-
-                if values[0].value is None and values[1].value is None:
-                    return Value(True)
-
-                if values[0].value == values[1].value:
-                    return Value(True)
-                else:
-                    return Value(False)
-
-            elif py_values and not values:
-                return Q(Exact(lhs, rhs))
-
-        value = values[0]
-        py_value = py_values[0]
-
-        if value.value is None:
-            return Q(IsNull(py_value, True))
-
-        return Q(Exact(lhs, rhs))
+        return Exact(lhs, rhs)
 
     @classmethod
     def gt(
@@ -1021,29 +800,12 @@ class BidirectionalOperator:
         rhs: Any,
     ) -> Any:
         if not cls.any_combinable(lhs, rhs):
-            return gt(lhs, rhs)
+            return lhs > rhs
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
 
-        if cls.should_optimize_for("compare", lhs, rhs):
-            values, py_values = cls.split_values(lhs, rhs)
-
-            if values and not py_values:
-
-                if values[0].value is None or values[1].value is None:
-                    return Value(False)
-
-                if values[0].value > values[1].value:
-                    return Value(True)
-
-                else:
-                    return Value(False)
-
-            elif values and py_values and values[0].value is None:
-                return Value(False)
-
-        return Q(GreaterThan(lhs, rhs))
+        return GreaterThan(lhs, rhs)
 
     @classmethod
     def ge(
@@ -1052,29 +814,12 @@ class BidirectionalOperator:
         rhs: Any,
     ) -> Any:
         if not cls.any_combinable(lhs, rhs):
-            return ge(lhs, rhs)
+            return lhs > rhs
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
 
-        if cls.should_optimize_for("compare", lhs, rhs):
-            values, py_values = cls.split_values(lhs, rhs)
-
-            if values and not py_values:
-
-                if values[0].value is None or values[1].value is None:
-                    return Value(False)
-
-                if values[0].value >= values[1].value:
-                    return Value(True)
-
-                else:
-                    return Value(False)
-
-            elif values and py_values and values[0].value is None:
-                return Value(False)
-
-        return Q(GreaterThanOrEqual(lhs, rhs))
+        return GreaterThanOrEqual(lhs, rhs)
 
     @classmethod
     def le(
@@ -1083,29 +828,12 @@ class BidirectionalOperator:
         rhs: Any,
     ) -> Any:
         if not cls.any_combinable(lhs, rhs):
-            return le(lhs, rhs)
+            return lhs > rhs
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
 
-        if cls.should_optimize_for("compare", lhs, rhs):
-            values, py_values = cls.split_values(lhs, rhs)
-
-            if values and not py_values:
-
-                if values[0].value is None or values[1].value is None:
-                    return Value(False)
-
-                if values[0].value <= values[1].value:
-                    return Value(True)
-
-                else:
-                    return Value(False)
-
-            elif values and py_values and values[0].value is None:
-                return Value(False)
-
-        return Q(LessThanOrEqual(lhs, rhs))
+        return LessThanOrEqual(lhs, rhs)
 
     @classmethod
     def lt(
@@ -1114,29 +842,12 @@ class BidirectionalOperator:
         rhs: Any,
     ) -> Any:
         if not cls.any_combinable(lhs, rhs):
-            return lt(lhs, rhs)
+            return lhs > rhs
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
 
-        if cls.should_optimize_for("compare", lhs, rhs):
-            values, py_values = cls.split_values(lhs, rhs)
-
-            if values and not py_values:
-
-                if values[0].value is None or values[1].value is None:
-                    return Value(False)
-
-                if values[0].value < values[1].value:
-                    return Value(True)
-
-                else:
-                    return Value(False)
-
-            elif values and py_values and values[0].value is None:
-                return Value(False)
-
-        return Q(LessThan(lhs, rhs))
+        return LessThan(lhs, rhs)
 
     @classmethod
     def ne(
@@ -1144,37 +855,28 @@ class BidirectionalOperator:
         lhs: Any,
         rhs: Any,
     ) -> Any:
-        if not cls.any_combinable(lhs, rhs):
-            return ne(lhs, rhs)
+        if not cls.any_queryable(lhs, rhs):
+            return lhs != rhs
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
 
-        values, py_values = cls.split_values(lhs, rhs)
+        if cls.is_combinable(lhs) and cls.is_combinable(rhs):
+            return Exact(Exact(lhs, rhs), Value(False))
 
-        if cls.should_optimize_for("compare", lhs, rhs):
+        lhs = cls.ensure_if_q(lhs)
+        rhs = cls.ensure_if_q(rhs)
 
-            if values and not py_values:
+        if cls.is_queryset(lhs) and cls.is_queryset(rhs):
+            return lhs.difference(rhs)
 
-                if values[0].value is None and values[1].value is None:
-                    return Value(False)
+        if cls.is_queryset(lhs) and not cls.is_queryset(rhs):
+            return lhs.filter(~rhs)
 
-                if values[0].value == values[1].value:
-                    return Value(False)
+        if not cls.is_queryset(lhs) and cls.is_queryset(rhs):
+            return rhs.model.objects.filter(lhs).difference(rhs)
 
-                else:
-                    return Value(True)
-
-            elif py_values and not values:
-                return ~Q(Exact(lhs, rhs))
-
-        value = values[0]
-        py_value = py_values[0]
-
-        if value.value is None:
-            return ~Q(IsNull(py_value, True))
-
-        return ~Q(Exact(lhs, rhs))
+        return lhs & ~rhs
 
     @classmethod
     def eq(
@@ -1182,33 +884,88 @@ class BidirectionalOperator:
         lhs: Any,
         rhs: Any,
     ) -> Any:
-        if not cls.any_combinable(lhs, rhs):
-            return eq(lhs, rhs)
+        if not cls.any_queryable(lhs, rhs):
+            return lhs == rhs
+
+        lhs = cls.ensure_py_object(lhs)
+        rhs = cls.ensure_py_object(rhs)
+
+        if lhs is None and rhs is None:
+            return IsNull(Value(None), Value(True))
+
+        if lhs is None and rhs is not None:
+            return IsNull(rhs, Value(True))
+
+        if lhs is not None and rhs is None:
+            return IsNull(lhs, Value(True))
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
 
-        values, py_values = cls.split_values(lhs, rhs)
+        return Exact(lhs, rhs)
 
-        if cls.should_optimize_for("compare", lhs, rhs):
+    @classmethod
+    def and_(
+        cls,
+        lhs: Any,
+        rhs: Any,
+    ) -> Any:
+        if not cls.any_queryable(lhs, rhs):
+            return lhs and rhs
 
-            if values and not py_values:
+        lhs = cls.ensure_if_combinable(lhs)
+        rhs = cls.ensure_if_combinable(rhs)
 
-                if values[0].value is None and values[1].value is None:
-                    return Value(True)
+        lhs = cls.ensure_if_q(lhs)
+        rhs = cls.ensure_if_q(rhs)
 
-                if values[0].value == values[1].value:
-                    return Value(True)
-                else:
-                    return Value(False)
+        return lhs & rhs
 
-            elif py_values and not values:
-                return Q(Exact(lhs, rhs))
+    @classmethod
+    def or_(
+        cls,
+        lhs: Any,
+        rhs: Any,
+    ) -> Any:
+        if not cls.any_queryable(lhs, rhs):
+            return lhs or rhs
 
-        value = values[0]
-        py_value = py_values[0]
+        lhs = cls.ensure_if_combinable(lhs)
+        rhs = cls.ensure_if_combinable(rhs)
 
-        if value.value is None:
-            return Q(IsNull(py_value, True))
+        lhs = cls.ensure_if_q(lhs)
+        rhs = cls.ensure_if_q(rhs)
 
-        return Q(Exact(lhs, rhs))
+        return lhs | rhs
+
+    @classmethod
+    def cond(
+        cls,
+        test: Any,
+        then: Any,
+        default: Any,
+    ) -> Any:
+        if not cls.any_combinable(test, then, default):
+            return then if test else default
+
+        test = cls.ensure_if_q(test)
+
+        then = cls.ensure_if_combinable(then)
+        default = cls.ensure_if_combinable(default)
+
+        if cls.is_q(then) or cls.is_q(default):
+
+            if cls.is_combinable(then) and not isinstance(then, Lookup):
+                then = Pure(then)
+
+            then = cls.ensure_if_q(then)
+
+            if cls.is_combinable(default) and not isinstance(default, Lookup):
+                default = Pure(default)
+
+            default = cls.ensure_if_q(default)
+
+        return Case(
+            When(test, then=then),
+            default=default,
+        )
