@@ -5,7 +5,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "django-xformula"
-version = "0.1.0"
+version = "0.1.1"
 description = "Django query evaluator, is built on top of XFormula language front-end."
 authors = ["Ertuğrul Keremoğlu <ertugkeremoglu@gmail.com>"]
 license = "MIT"
