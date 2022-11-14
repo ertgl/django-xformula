@@ -23,7 +23,7 @@ If you're interested, you may check the note in
 - - Operations contain at least one `Model` instance, will be evaluated as `Value`
     which contains the model instance's primary key
 - - Other operations work like how Python does
-- Zero built-in variable by defaults
+- Zero built-in variable by default
 - - When a variable name is used but does not exist in the specified built-ins,
     it will be evaluated as `F` object
 - Customizable attribute getter; manage which attributes can be used in formulas
