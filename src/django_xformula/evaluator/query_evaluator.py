@@ -201,7 +201,7 @@ class QueryEvaluator:
             return node.name
         raise NotImplementedError(
             f"{self.__class__.__qualname__}.evaluate_identifier"
-            f" is not implemented for context: {context!r}"
+            f" is not implemented for node context: {node.context!r}"
         )
 
     def evaluate_attribute(
@@ -219,7 +219,7 @@ class QueryEvaluator:
             raise ForbiddenAttribute(owner, attname)
         raise NotImplementedError(
             f"{self.__class__.__qualname__}.evaluate_attribute"
-            f" is not implemented for context: {context!r}"
+            f" is not implemented for node context: {node.context!r}"
         )
 
     def evaluate_call(
