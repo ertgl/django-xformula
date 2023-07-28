@@ -752,13 +752,13 @@ class BidirectionalOperator:
         rhs = cls.ensure_py_object(rhs)
 
         if lhs is None and rhs is None:
-            return IsNull(Value(None), Value(False))
+            return IsNull(Value(None), False)
 
         if lhs is None and rhs is not None:
-            return IsNull(rhs, Value(False))
+            return IsNull(rhs, False)
 
         if lhs is not None and rhs is None:
-            return IsNull(lhs, Value(False))
+            return IsNull(lhs, False)
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
@@ -780,13 +780,13 @@ class BidirectionalOperator:
         rhs = cls.ensure_py_object(rhs)
 
         if lhs is None and rhs is None:
-            return IsNull(Value(None), Value(True))
+            return IsNull(Value(None), True)
 
         if lhs is None and rhs is not None:
-            return IsNull(rhs, Value(True))
+            return IsNull(rhs, True)
 
         if lhs is not None and rhs is None:
-            return IsNull(lhs, Value(True))
+            return IsNull(lhs, True)
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)
@@ -891,13 +891,13 @@ class BidirectionalOperator:
         rhs = cls.ensure_py_object(rhs)
 
         if lhs is None and rhs is None:
-            return IsNull(Value(None), Value(True))
+            return IsNull(Value(None), True)
 
         if lhs is None and rhs is not None:
-            return IsNull(rhs, Value(True))
+            return IsNull(rhs, True)
 
         if lhs is not None and rhs is None:
-            return IsNull(lhs, Value(True))
+            return IsNull(lhs, True)
 
         lhs = cls.ensure_if_combinable(lhs)
         rhs = cls.ensure_if_combinable(rhs)

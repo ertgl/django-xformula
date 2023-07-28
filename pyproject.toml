@@ -5,14 +5,12 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "django-xformula"
-version = "0.1.2"
+version = "0.1.3"
 description = "Django query evaluator, is built on top of XFormula language front-end."
 authors = ["Ertuğrul Keremoğlu <ertugkeremoglu@gmail.com>"]
 license = "MIT"
 readme = "README.md"
-packages = [
-	{include = "django_xformula", from = "src" },
-]
+packages = [{ include = "django_xformula", from = "src" }]
 
 
 [tool.poetry.dependencies]
@@ -25,7 +23,7 @@ xformula = "^0.1.1"
 [tool.poetry.group.dev.dependencies]
 black = "^22.10.0"
 commitizen = "^2.35.0"
-django-stubs = {extras = ["compatible-mypy"], version = "^1.13.0"}
+django-stubs = { extras = ["compatible-mypy"], version = "^1.13.0" }
 isort = "^5.10.1"
 mypy = "^0.982"
 pycln = "^2.1.1"
@@ -48,10 +46,7 @@ version_files = [
 
 [tool.isort]
 profile = "black"
-known_first_party = [
-	"django_xformula",
-	"django_xformula_unittests",
-]
+known_first_party = ["django_xformula", "django_xformula_unittests"]
 
 
 [tool.pycln]
