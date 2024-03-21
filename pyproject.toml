@@ -21,7 +21,7 @@ xformula = "^0.1.1"
 
 
 [tool.poetry.group.dev.dependencies]
-black = "^22.10.0"
+black = ">=22.10,<25.0"
 commitizen = "^2.35.0"
 django-stubs = { extras = ["compatible-mypy"], version = "^1.13.0" }
 isort = "^5.10.1"
