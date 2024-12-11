@@ -99,19 +99,19 @@ For example, the following query would return all `MyModel` instances where the
 owner_id == me.id
 ```
 
-Even more complex queries can be written, such as the following example.
-This query would return all `MyModel` instances where the `name` field is longer
-than 5 characters, only if the remote data is fetched successfully:
-
-```python
-fetch_remote_data(me).status_code == 200 and Length(name) > 5
-```
-
 Another example would be to return all `MyModel` instances where the `name`
 field is longer than 5 characters:
 
 ```python
 Length(name) > 5
+```
+
+Even more complex queries can be written, such as the following example.
+This query would return all `MyModel` instances where the `name` field is longer
+than field `age`, only if the remote data is fetched successfully:
+
+```python
+fetch_remote_data(me).status_code == 200 and Length(name) > age
 ```
 
 ### Operators
