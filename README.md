@@ -5,12 +5,12 @@ Django query evaluator, built on top of
 
 ## Use Cases
 
-This library can be used for various purposes, such as:
+This library can be used to develop various types of features, such as:
 
-* **Open APIs**: Allow users to filter data using formulas
+* **Open APIs**: Allow users and integrated services to filter data using formulas
 * **Flexible Security**: Implement query-based authorization checks, stored in the database
-* **Conditional Webhooks**: Trigger webhooks based on complex conditions, likely provided by the user
-* **Personalized Experience**: Provide users with the ability to customize their views conditionally
+* **Conditional Webhooks**: Trigger webhooks based on preferred conditions, likely provided by the user
+* **Personalized Experience**: Allow users to customize their interactions with the app
 
 These are just a few examples of what you can do with `django-xformula`.
 
