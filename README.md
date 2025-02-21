@@ -7,15 +7,14 @@ applications.
 
 - [Overview](#overview)
   - [Use Cases](#use-cases)
-- [Features](#features)
-  - [Bidirectional Operators](#bidirectional-operators)
-  - [Zero Built-in Variables by Default](#zero-built-in-variables-by-default)
-  - [Customizable Attribute Getter](#customizable-attribute-getter)
-  - [Customizable Function Caller](#customizable-function-caller)
+  - [Features](#features)
+    - [Bidirectional Operators](#bidirectional-operators)
+    - [Zero Built-in Variables by Default](#zero-built-in-variables-by-default)
+    - [Customizable Attribute Getter](#customizable-attribute-getter)
+    - [Customizable Function Caller](#customizable-function-caller)
 - [Installation](#installation)
 - [Usage](#usage)
 - [Operators](#operators)
-- [Query Validity](#query-validity)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
@@ -50,12 +49,12 @@ django-xformula. Here are a few examples:
 The flexibility of django-xformula makes it suitable for many other scenarios
 where dynamic query evaluation is required.
 
-## Features
+### Features
 
 django-xformula provides minimal yet powerful features that enable developers
 to build complex query evaluators for their specific needs.
 
-### Bidirectional Operators
+#### Bidirectional Operators
 
 django-xformula uses the same syntax for both Python and Django query
 evaluations. Expressions are intelligently interpreted based on their content:
@@ -68,21 +67,21 @@ evaluations. Expressions are intelligently interpreted based on their content:
   holding the instance's primary key.
 - All other operations are handled using standard Python evaluation rules.
 
-### Zero Built-in Variables by Default
+#### Zero Built-in Variables by Default
 
 By default, any variable referenced in a formula that is not explicitly defined
 within the built-in context is treated as an `F` object. This ensures that only
 approved variables and functions are used in query evaluations, preventing
 potential security risks.
 
-### Customizable Attribute Getter
+#### Customizable Attribute Getter
 
 By default, accessing an object's attribute within a formula is prohibited and
 will raise a `ForbiddenAttribute` error (a subclass of Django's
 `PermissionDenied`). This behavior can be customized to specify which
 attributes are accessible in formulas, adding an extra layer of security.
 
-### Customizable Function Caller
+#### Customizable Function Caller
 
 Function calls within formulas are restricted by default, raising a
 `ForbiddenCall` error (inheriting from Django's `PermissionDenied`) if invoked.
