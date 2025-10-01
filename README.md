@@ -62,9 +62,9 @@ are interpreted based on context:
   primary key.
 - Otherwise, expressions fall back to standard Python rules.
 
-This allows a formula to be used both as a database test query and as a Python
-test expression. For example, it becomes especially useful for cases like
-filtering GraphQL subscription data.
+This makes it possible to use a formula both as a database query and as a
+Python expression. It is particularly useful in scenarios such as filtering
+data in GraphQL subscriptions, etc.
 
 #### Zero Built-in Variables by Default
 
