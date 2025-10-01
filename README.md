@@ -15,6 +15,7 @@ A dynamic formula-to-Python and formula-to-SQL evaluator for
 - [Installation](#installation)
 - [Usage](#usage)
 - [Operators](#operators)
+- [Syntax](#syntax)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
@@ -178,6 +179,18 @@ Sample formulas you can use with the built-ins defined in the example above:
 For a full list of supported operators, see the
 [XFormula default precedence list](https://github.com/ertgl/xformula/blob/main/src/xformula/syntax/core/operations/default_operator_precedences.py#L16).
 
+### Syntax
+
+The XFormula project provides a default syntax, where the top-level
+non-terminal type is `expression`. django-xformula uses this syntax by default.  
+If customization is needed, you can find the relevant examples in the XFormula
+[README](https://github.com/ertgl/xformula) and in its
+[features](https://github.com/ertgl/xformula/tree/4e1e3a88200ccbe22d8aa477001d9af68dd91ab4/src/xformula/syntax/core/features).
+
+You can also check the EBNF grammar of the default syntax in the
+[out/Grammar.lark](https://github.com/ertgl/xformula/blob/main/out/Grammar.lark)
+file.
+
 ### Troubleshooting
 
 Some common issues you might run into:
@@ -187,8 +200,7 @@ Some common issues you might run into:
 - **`ForbiddenCall` error**: The formula is trying to call a function that
   isn't allowed. Update your custom function caller to whitelist the function.
 - **Invalid query syntax**: The formula doesn't match XFormula grammar.
-  Double-check the
-  [syntax](https://github.com/ertgl/xformula/blob/main/out/Grammar.lark).
+  Double-check the syntax.
 - **Unsupported database function**: The database backend doesn't support the
   function you're trying to use. Verify
   [backend capabilities](https://docs.djangoproject.com/en/5.2/ref/databases/).
